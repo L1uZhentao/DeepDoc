@@ -1,0 +1,66 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Packages
+deepdoc/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+
+# Installers
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.wheel
+
+# Distribution / packaging
+.Python
+*.lock
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Environment variables
+.env
+.env.*
+.venv
+
+# Local development files
+instance/
+*.db
+*.sqlite3
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+
+# Docker
+*.env
+docker-compose.override.yml
+
+# Mac OS specific
+.DS_Store
