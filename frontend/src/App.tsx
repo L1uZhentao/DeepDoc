@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from 'react-query';
 import axios from 'axios';
-import { Box, Button, CircularProgress, Typography, LinearProgress } from '@mui/material';
+import { Box, Button, CircularProgress, Typography, LinearProgress, Alert } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 
@@ -9,8 +9,12 @@ const App: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [markdownResult, setMarkdownResult] = useState<string | null>(null);
   const [completed, setCompleted] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // Track error messages
+
+  const queryClient = useQueryClient();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null); // Reset error on file change
     if (event.target.files && event.target.files[0]) {
       setSelectedFile(event.target.files[0]);
     }
@@ -33,8 +37,21 @@ const App: React.FC = () => {
     {
       onSuccess: (data) => {
         setMarkdownResult(data.data.markdown);
+        setErrorMessage(null); // Clear error if successful
       },
       onError: (error) => {
+        // Type narrowing for the error
+        if (axios.isAxiosError(error)) {
+          // Axios specific error handling
+          if (error.response && error.response.status === 400) {
+            setErrorMessage(error.response.data.detail); // Handle 400 error for unsupported file type
+          } else {
+            setErrorMessage('An error occurred while uploading the file.');
+          }
+        } else {
+          setErrorMessage('An unexpected error occurred.');
+        }
+        setMarkdownResult(null); // Clear previous markdown result
         console.error('Error uploading file:', error);
       },
     }
@@ -84,6 +101,12 @@ const App: React.FC = () => {
         Convert Your File to Markdown
       </Typography>
 
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
+        </Alert>
+      )}
+
       <form onSubmit={handleFileUpload} style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
         <input
           accept=".pdf,.docx,.csv,.html"
@@ -126,7 +149,7 @@ const App: React.FC = () => {
           {handleFileUploadMutation.isLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Upload'}
         </Button>
 
-        {completed > 0 && (
+        {!errorMessage && completed > 0 && (
           <Box sx={{ width: '100%', mt: 2 }}>
             <LinearProgress variant="determinate" value={completed} />
             <Typography variant="body2" color="textSecondary">
