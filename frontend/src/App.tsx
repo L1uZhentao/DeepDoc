@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation } from 'react-query';
 import axios from 'axios';
-import { Box, Button, CircularProgress, Typography, LinearProgress, Alert } from '@mui/material';
+import { Box, Button, CircularProgress, Typography, LinearProgress, Alert, FormControlLabel, Switch } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 
@@ -10,8 +10,7 @@ const App: React.FC = () => {
   const [markdownResult, setMarkdownResult] = useState<string | null>(null);
   const [completed, setCompleted] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null); // Track error messages
-
-  const queryClient = useQueryClient();
+  const [isAdvanced, setIsAdvanced] = useState<boolean>(false); // Toggle between basic and advanced parsing
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMessage(null); // Reset error on file change
@@ -22,7 +21,7 @@ const App: React.FC = () => {
 
   const handleFileUploadMutation = useMutation(
     (formData: FormData) =>
-      axios.post('http://127.0.0.1:8000/upload', formData, {
+      axios.post(`http://127.0.0.1:8000/upload?advanced=${isAdvanced}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 10000,  // 10 seconds timeout, adjust as necessary
         onUploadProgress: (progressEvent) => {
@@ -40,13 +39,13 @@ const App: React.FC = () => {
         setErrorMessage(null); // Clear error if successful
       },
       onError: (error) => {
-        // Type narrowing for the error
         if (axios.isAxiosError(error)) {
-          // Axios specific error handling
           if (error.response && error.response.status === 400) {
             setErrorMessage(error.response.data.detail); // Handle 400 error for unsupported file type
+          } else if (error.response && error.response.status === 500) {
+            setErrorMessage("Parser Error" + error.response.data.detail);
           } else {
-            setErrorMessage('An error occurred while uploading the file.');
+            setErrorMessage('An unexpected error occurred.');
           }
         } else {
           setErrorMessage('An unexpected error occurred.');
@@ -69,18 +68,15 @@ const App: React.FC = () => {
   const handleDownloadMarkdown = () => {
     if (!markdownResult) return;
 
-    // Create a Blob with markdown content
     const blob = new Blob([markdownResult], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
 
-    // Create an anchor element and trigger download
     const link = document.createElement('a');
     link.href = url;
     link.download = 'converted_markdown.md';
     document.body.appendChild(link);
     link.click();
 
-    // Cleanup the URL and remove the anchor element
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
@@ -137,6 +133,11 @@ const App: React.FC = () => {
             Selected file: <strong>{selectedFile.name}</strong>
           </Typography>
         )}
+
+        <FormControlLabel
+          control={<Switch checked={isAdvanced} onChange={() => setIsAdvanced(!isAdvanced)} />}
+          label={isAdvanced ? "Advanced Parse" : "Basic Parse"}
+        />
 
         <Button
           variant="contained"
