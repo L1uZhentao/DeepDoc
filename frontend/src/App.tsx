@@ -23,7 +23,7 @@ const App: React.FC = () => {
     (formData: FormData) =>
       axios.post(`http://127.0.0.1:8000/upload?advanced=${isAdvanced}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 10000,  // 10 seconds timeout, adjust as necessary
+        timeout: 30000,  // 30 seconds timeout, adjust as necessary
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const percentageCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -43,9 +43,11 @@ const App: React.FC = () => {
           if (error.response && error.response.status === 400) {
             setErrorMessage(error.response.data.detail); // Handle 400 error for unsupported file type
           } else if (error.response && error.response.status === 500) {
-            setErrorMessage("Parser Error" + error.response.data.detail);
+            setErrorMessage("Parser Error: " + error.response.data.detail);
+          } else if (error.response){
+            setErrorMessage('An unexpected error occurred.' + error.response.data.detail);
           } else {
-            setErrorMessage('An unexpected error occurred.');
+            setErrorMessage('An unexpected unknown error occurred.');
           }
         } else {
           setErrorMessage('An unexpected error occurred.');

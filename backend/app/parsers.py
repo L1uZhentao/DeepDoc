@@ -6,14 +6,20 @@ from tabulate import tabulate
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 import io
+import logging
+import numpy as np
+import re
 from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
-import logging
-import base64
-import os
+from pdfminer.high_level import extract_text, extract_pages
+from pdfminer.layout import LTTextBox, LTTextLine, LTChar, LAParams, LTFigure
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextBox, LTTextLine, LTChar, LTFigure, LAParams
+
+
 logger = logging.getLogger(__name__)
 # Base parser class
 class Parser:
@@ -41,16 +47,112 @@ class Parser:
     def advanced_parse(self, file: UploadFile) -> str:
         raise NotImplementedError("Advanced parse method not implemented")
 
-# PDF Parser
 class PDFParser(Parser):
-    def basic_parse(self) -> str:
-        # Implement basic PDF to Markdown conversion
-        return "# Basic PDF Content Parsed as Markdown"
+    def __init__(self):
+        super().__init__()
+        self.text_blocks = []  # Store all text blocks and their features
+        self.font_size_threshold = 0
+        self.max_text_length = 100  # Set a threshold for maximum allowed text length for headings
 
-    def advanced_parse(self) -> str:
-        # Implement advanced PDF parsing using AI
-        return "# Advanced PDF Content Parsed with AI"
-    
+    # Main function to parse the PDF into markdown format
+    def basic_parse(self) -> str:
+        # Step 1: Collect text features and calculate the 80th percentile for font size
+        self.collect_text_features()
+
+        # Step 2: Process the text blocks and generate Markdown output
+        markdown_output = self.process_text_blocks()
+
+        return markdown_output
+
+    # Step 1: Collect font size and other features from the document
+    def collect_text_features(self):
+        doc_bytes = io.BytesIO(self.file)
+        font_sizes = []
+
+        # Collect text blocks and their font sizes
+        for page_layout in extract_pages(doc_bytes, laparams=LAParams()):
+            for element in page_layout:
+                if isinstance(element, (LTTextBox, LTTextLine)):
+                    for line in element:
+                        if isinstance(line, LTTextLine):
+                            font_size = None
+                            text_content = line.get_text().strip()
+
+                            # Extract the font size from the first LTChar in the LTTextLine
+                            for char in line:
+                                if isinstance(char, LTChar):
+                                    font_size = char.size
+                                    break
+
+                            if font_size:
+                                # Store the text block and its font size
+                                self.text_blocks.append([font_size, text_content])
+                                font_sizes.append(font_size)
+
+        # Calculate the 80th percentile font size once for all text blocks
+        if font_sizes:
+            self.font_size_threshold = np.percentile(font_sizes, 80)
+
+    # Step 2: Process the text blocks and determine which ones are headings
+    def process_text_blocks(self):
+        markdown_output = []
+        heading_candidates = self.find_heading_candidates()
+        heading_candidates = self.filter_long_text_blocks(heading_candidates)  # New filter for long text blocks
+
+        # Process and format the text blocks
+        for index, block in enumerate(self.text_blocks):
+            font_size, text_content = block
+            if text_content == "-":
+                continue
+            if index in heading_candidates:
+                heading_level = self.determine_heading_level(font_size, text_content)
+                markdown_output.append(f"{'#' * heading_level} {text_content} {'\n'}")
+            else:
+                markdown_output.append(text_content)
+
+        return "\n".join(markdown_output)
+
+    # Identify heading candidates based on font size (above 80th percentile)
+    def find_heading_candidates(self):
+        heading_candidates = []
+
+        for i, (font_size, _) in enumerate(self.text_blocks):
+            if font_size > self.font_size_threshold:
+                heading_candidates.append(i)
+
+        return heading_candidates
+
+    # Filter out blocks where the text length is too long (i.e., not likely to be a heading)
+    def filter_long_text_blocks(self, heading_candidates):
+        valid_headings = []
+
+        for i in heading_candidates:
+            text_content = self.text_blocks[i][1]
+            if len(text_content) <= self.max_text_length:
+                valid_headings.append(i)
+
+        return valid_headings
+
+    # Determine the heading level based on the font size
+    def determine_heading_level(self, font_size, text):
+        # If the text starts with a numbering pattern, use it to determine the heading level
+        if re.match(r"^\d+\.\d+\.\d+\s+", text):
+            return 3  # e.g., 1.1.1 -> Level 3
+        elif re.match(r"^\d+\.\d+\s+", text):
+            return 2  # e.g., 1.1 -> Level 2
+        elif re.match(r"^\d+\s+", text):
+            return 1  # e.g., 1 -> Level 1
+
+        # Fallback to font size-based classification
+        # TODO
+        if font_size > 16:
+            return 1  # Level 1 heading
+        elif font_size > 12:
+            return 2  # Level 2 heading
+        else:
+            return 3  # Level 3 heading
+
+
 class DOCXParser(Parser):
     def basic_parse(self) -> str:
         """
