@@ -53,6 +53,7 @@ class PDFParser(Parser):
         self.text_blocks = []  # Store all text blocks and their features
         self.font_size_threshold = 0
         self.max_text_length = 100  # Set a threshold for maximum allowed text length for headings
+        self.figure_count = 0  # Track the number of figures (images)
 
     # Main function to parse the PDF into markdown format
     def basic_parse(self) -> str:
@@ -64,7 +65,7 @@ class PDFParser(Parser):
 
         return markdown_output
 
-    # Step 1: Collect font size and other features from the document
+    # Step 1: Collect font size and other features from the document, including images (figures)
     def collect_text_features(self):
         doc_bytes = io.BytesIO(self.file)
         font_sizes = []
@@ -89,11 +90,17 @@ class PDFParser(Parser):
                                 self.text_blocks.append([font_size, text_content])
                                 font_sizes.append(font_size)
 
+                # Handle image (figure) detection
+                elif isinstance(element, LTFigure):
+                    self.figure_count += 1
+                    figure_id = f"Figure {self.figure_count}"
+                    self.text_blocks.append([None, figure_id])  # Store figure ID as a text block
+
         # Calculate the 80th percentile font size once for all text blocks
         if font_sizes:
             self.font_size_threshold = np.percentile(font_sizes, 80)
 
-    # Step 2: Process the text blocks and determine which ones are headings
+    # Step 2: Process the text blocks and determine which ones are headings or images
     def process_text_blocks(self):
         markdown_output = []
         heading_candidates = self.find_heading_candidates()
@@ -104,9 +111,14 @@ class PDFParser(Parser):
             font_size, text_content = block
             if text_content == "-":
                 continue
+
+            # Handle headings
             if index in heading_candidates:
                 heading_level = self.determine_heading_level(font_size, text_content)
                 markdown_output.append(f"{'#' * heading_level} {text_content} {'\n'}")
+            # Handle images (figures)
+            elif "Figure" in text_content:
+                markdown_output.append(f"![{text_content}]({'#figure'})\n")  # Markdown figure syntax
             else:
                 markdown_output.append(text_content)
 
@@ -117,7 +129,7 @@ class PDFParser(Parser):
         heading_candidates = []
 
         for i, (font_size, _) in enumerate(self.text_blocks):
-            if font_size > self.font_size_threshold:
+            if font_size and font_size > self.font_size_threshold:
                 heading_candidates.append(i)
 
         return heading_candidates
@@ -144,7 +156,6 @@ class PDFParser(Parser):
             return 1  # e.g., 1 -> Level 1
 
         # Fallback to font size-based classification
-        # TODO
         if font_size > 16:
             return 1  # Level 1 heading
         elif font_size > 12:
