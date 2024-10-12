@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.vision.imageanalysis.models import VisualFeatures
+import hashlib
+from functools import cache, lru_cache
 
 # Azure Vision API setup
 try:
@@ -144,12 +146,20 @@ class PDFParser(Parser):
             elif element[0] == "image":
                 image_bytes = element[1]
                 if image_bytes:
-                    image_description = self._generate_image_description(image_bytes)
+                    # Validate image dimensions before generating description
+                    image = Image.open(image_bytes)
+                    if image.size[0] < 50 or image.size[1] < 50 or image.size[0] > 16000 or image.size[1] > 16000:
+                        logger.error("Image dimensions are out of supported range (50x50 to 16000x16000)")
+                        image_description = "Image description unavailable due to unsupported dimensions"
+                    else:
+                        image_description = self._generate_image_description(image_bytes)
+                    print(image_id, image_description)
                     markdown_output.append(f"\n\n![Figure {image_id}] {image_description}\n")
                     image_id += 1
 
         return "\n".join(markdown_output)
 
+    @cache
     def _generate_image_description(self, image_bytes):
         # Use Azure Vision API to generate description
         try:
@@ -157,9 +167,6 @@ class PDFParser(Parser):
             caption = description_result.caption.text if description_result.caption and description_result.caption.text else "Image description unavailable"
             ocr_text = " ".join([line.text for block in description_result.read.blocks for line in block.lines]) if description_result.read else ""
             return f"{caption} - {ocr_text}" if ocr_text else caption
-        except Exception as e:
-            logger.error(f"Error generating image description: {e}")
-            return "Image description unavailable"
         except Exception as e:
             logger.error(f"Error generating image description: {e}")
             return "Image description unavailable"
@@ -206,28 +213,34 @@ class DOCXParser(Parser):
 
         doc_bytes = io.BytesIO(self.file)
         doc = Document(doc_bytes)
-
+        image_id = 1
+        # Iterate through document elements (paragraphs, tables, and images) in order
         for block in self._iter_block_elements(doc):
             if isinstance(block, Paragraph):
                 content.append(self._convert_paragraph(block))
             elif isinstance(block, Table):
                 content.append(self._convert_table_to_markdown(block))
-
-        images = docx2txt.process(doc_bytes, images_path="/tmp/images")
-        for idx, image_path in enumerate(images):
-            with open(image_path, "rb") as img_file:
-                image = Image.open(img_file)
-                image_description = self._generate_image_description(image)
-                content.append(f"\n\n![Figure {idx + 1}: {image_description}]\n")
+            elif isinstance(block, bytes):  # If the block is image bytes
+                image_bytes = io.BytesIO(block)
+                image_description = self._generate_image_description(image_bytes)
+                content.append(f"\n\n![Figure {image_id}]: {image_description}\n")
+                image_id = image_id + 1
 
         return "\n\n".join(content)
 
     def _iter_block_elements(self, doc):
+        # Iterate through paragraphs, tables, and images in the document body in the correct order
         for element in doc.element.body:
             if isinstance(element, CT_P):
                 yield Paragraph(element, doc)
             elif isinstance(element, CT_Tbl):
                 yield Table(element, doc)
+
+        # Extract images from the document using relationships
+        for rel in doc.part.rels.values():
+            if "image" in rel.target_ref:
+                image_data = rel.target_part.blob
+                yield image_data
 
     def _convert_paragraph(self, para):
         if para.style.name.startswith('Heading'):
@@ -299,18 +312,14 @@ class DOCXParser(Parser):
 
         return "\n".join(table_md)
 
+    @cache
     def _generate_image_description(self, image_bytes):
         # Use Azure Vision API to generate description
         try:
-            print("start")
             description_result = vision_client.analyze(image_data=image_bytes.getvalue(), visual_features=[VisualFeatures.CAPTION, VisualFeatures.READ])
             caption = description_result.caption.text if description_result.caption and description_result.caption.text else "Image description unavailable"
-            print("aa")
             ocr_text = " ".join([line.text for block in description_result.read.blocks for line in block.lines]) if description_result.read else ""
-            return f"{caption} - OCR: {ocr_text}" if ocr_text else caption
-        except Exception as e:
-            logger.error(f"Error generating image description: {e}")
-            return "Image description unavailable"
+            return f"{caption} - {ocr_text}" if ocr_text else caption
         except Exception as e:
             logger.error(f"Error generating image description: {e}")
             return "Image description unavailable"
