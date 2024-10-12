@@ -1,11 +1,10 @@
 import io
 import os
-from fastapi import FastAPI, UploadFile, File
+from fastapi import UploadFile
 from azure.core.credentials import AzureKeyCredential
 from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTImage, LTTextBox, LTTextLine, LTChar, LTFigure, LAParams, LTContainer
-import fitz  # PyMuPDF for extracting images from PDFs
-import docx2txt  # Library to extract text and images from DOCX
+from pdfminer.layout import LTImage, LTTextBox, LTTextLine, LTChar, LTFigure, LAParams
+import fitz 
 from PIL import Image
 import pandas as pd
 from tabulate import tabulate
@@ -20,12 +19,10 @@ from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
 import logging
 logger = logging.getLogger(__name__)
-
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.vision.imageanalysis.models import VisualFeatures
-import hashlib
-from functools import cache, lru_cache
+from functools import cache
 
 # Azure Vision API setup
 try:
@@ -42,18 +39,22 @@ vision_client = ImageAnalysisClient(
 
 # Base parser class
 class Parser:
-    def __init__(self, file: UploadFile = None, path: str = None):
-        if file:
-            self.file = file.file.read()
+    def __init__(self, uploadFile: UploadFile = None, bytesFile: bytes = None, path: str = None):
+        if uploadFile:
+            self.file = uploadFile.file.read()
+        elif bytesFile:
+            self.file = bytesFile.read()
         elif path:
             with open(path, 'rb') as f:
                 self.file = f.read()
         else:
             self.data = None
 
-    def set_file(self, file: UploadFile = None, path: str = None):
-        if file:
-            self.file = file.file.read()
+    def set_file(self, uploadFile: UploadFile = None, bytesFile: bytes = None, path: str = None):
+        if uploadFile:
+            self.file = uploadFile.file.read()
+        elif bytesFile: 
+            self.file = bytesFile.read()
         elif path:
             with open(path, 'rb') as f:
                 self.file = f.read()
