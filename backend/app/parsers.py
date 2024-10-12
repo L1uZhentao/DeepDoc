@@ -338,23 +338,85 @@ class CSVParser(Parser):
         df = pd.read_csv(io.BytesIO(self.file))
         res = tabulate(df, tablefmt="pipe", headers="keys")
         return res
-
+    
 class HTMLParser(Parser):
     def basic_parse(self) -> str:
         if self.file is None:
             raise ValueError("No file data is configured")
         content = self.file
         soup = BeautifulSoup(content, 'html.parser')
-        markdown_content = md(str(soup))
-        return markdown_content
+
+        # Determine the base URL if available
+        base_url = soup.find('base', href=True)
+        base_url = base_url['href'] if base_url else ''
+
+        markdown_content = []
+        # Iterate over all tags in the HTML content
+        for element in soup.descendants:
+            if element.name == 'img' and element.has_attr('src'):
+                # Handle image tags
+                image_url = element['src']
+                if image_url.startswith('//'):
+                    # Convert protocol-relative URLs to absolute URLs
+                    image_url = 'https:' + image_url
+                elif not image_url.startswith(('http://', 'https://')) and base_url:
+                    # Convert relative URLs to absolute URLs using the base URL
+                    image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
+                
+                image_description = self._generate_image_description_from_url(image_url)
+                if image_description != "Image description unavailable":
+                    markdown_content.append(f"\n\n![Image: {image_description}]\n")
+            elif element.name is not None:
+                # Convert other HTML elements to markdown
+                markdown_content.append(md(str(element)))
+
+        return "\n".join(markdown_content)
+
+    def _generate_image_description_from_url(self, image_url: str) -> str:
+        # Use Azure Vision API to generate description from URL
+        try:
+            description_result = vision_client.analyze_from_url(
+                image_url=image_url,
+                visual_features=[VisualFeatures.CAPTION, VisualFeatures.READ],
+                gender_neutral_caption=True
+            )
+            caption = description_result.caption.text if description_result.caption and description_result.caption.text else "Image description unavailable"
+            ocr_text = " ".join([line.text for block in description_result.read.blocks for line in block.lines]) if description_result.read else ""
+            return f"{caption} - OCR: {ocr_text}" if ocr_text else caption
+        except Exception as e:
+            logger.error(f"Error generating image description from URL {image_url}: {e}")
+            return "Image description unavailable"
 
     def advanced_parse(self) -> str:
         if self.data is None:
             raise ValueError("No file data is configured")
         content = self.data
         soup = BeautifulSoup(content, 'html.parser')
-        markdown_content = md(str(soup))
-        return markdown_content
+
+        # Determine the base URL if available
+        base_url = soup.find('base', href=True)
+        base_url = base_url['href'] if base_url else ''
+
+        markdown_content = []
+        # Iterate over all tags in the HTML content
+        for element in soup.descendants:
+            if element.name == 'img' and element.has_attr('src'):
+                # Handle image tags
+                image_url = element['src']
+                if image_url.startswith('//'):
+                    # Convert protocol-relative URLs to absolute URLs
+                    image_url = 'https:' + image_url
+                elif not image_url.startswith(('http://', 'https://')) and base_url:
+                    # Convert relative URLs to absolute URLs using the base URL
+                    image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
+                
+                image_description = self._generate_image_description_from_url(image_url)
+                markdown_content.append(f"\n\n![Image: {image_description}]\n")
+            elif element.name is not None:
+                # Convert other HTML elements to markdown
+                markdown_content.append(md(str(element)))
+
+        return "\n".join(markdown_content)
 
 # Factory class to return appropriate parser based on file type
 class ParserFactory:
