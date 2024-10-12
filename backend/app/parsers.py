@@ -39,6 +39,7 @@ vision_client = ImageAnalysisClient(
     endpoint=AZURE_VISION_ENDPOINT,
     credential=AzureKeyCredential(AZURE_VISION_KEY)
 )
+
 # Base parser class
 class Parser:
     def __init__(self, file: UploadFile = None, path: str = None):
@@ -74,29 +75,35 @@ class PDFParser(Parser):
         self.figure_count = 0  # Track the number of figures (images)
 
     def basic_parse(self) -> str:
-        self.collect_elements()
-        markdown_output = self.process_elements()
+        self.collect_elements(include_images=False)
+        markdown_output = self.process_elements(include_image_descriptions=False)
         return markdown_output
 
-    def collect_elements(self):
+    def advanced_parse(self) -> str:
+        self.collect_elements(include_images=True)
+        markdown_output = self.process_elements(include_image_descriptions=True)
+        return markdown_output
+
+    def collect_elements(self, include_images: bool):
         doc_bytes = io.BytesIO(self.file)
         font_sizes = []
 
-        # Step 1: Extract all images using PyMuPDF
-        pdf_document = fitz.open(stream=self.file, filetype="pdf")
+        # Step 1: Extract all images using PyMuPDF if include_images is True
         image_data_list = []
-        image_counter = 0  
-        for page_num in range(len(pdf_document)):
-            page = pdf_document.load_page(page_num)
-            for img in page.get_images(full=True):
-                xref = img[0]
-                base_image = pdf_document.extract_image(xref)
-                if base_image:
-                    image_bytes = base_image.get("image")
-                    if image_bytes:
-                        image_data_list.append((page_num, io.BytesIO(image_bytes)))
+        if include_images:
+            pdf_document = fitz.open(stream=self.file, filetype="pdf")
+            for page_num in range(len(pdf_document)):
+                page = pdf_document.load_page(page_num)
+                for img in page.get_images(full=True):
+                    xref = img[0]
+                    base_image = pdf_document.extract_image(xref)
+                    if base_image:
+                        image_bytes = base_image.get("image")
+                        if image_bytes:
+                            image_data_list.append((page_num, io.BytesIO(image_bytes)))
 
         # Step 2: Parse PDF using pdfminer and collect text elements
+        image_counter = 0
         for page_num, page_layout in enumerate(extract_pages(doc_bytes, laparams=LAParams())):
             for element in page_layout:
                 if isinstance(element, (LTTextBox, LTTextLine)):
@@ -113,7 +120,7 @@ class PDFParser(Parser):
                             if font_size:
                                 self.elements.append(("text", font_size, text_content))
                                 font_sizes.append(font_size)
-                elif isinstance(element, LTFigure):
+                elif isinstance(element, LTFigure) and include_images:
                     # Insert images in the correct order
                     if image_counter < len(image_data_list) and image_data_list[image_counter][0] == page_num:
                         self.figure_count += 1
@@ -124,8 +131,7 @@ class PDFParser(Parser):
         if font_sizes:
             self.font_size_threshold = np.percentile(font_sizes, 80)
 
-
-    def process_elements(self):
+    def process_elements(self, include_image_descriptions: bool):
         markdown_output = []
         heading_candidates = self.find_heading_candidates()
         heading_candidates = self.filter_long_text_blocks(heading_candidates)
@@ -146,15 +152,17 @@ class PDFParser(Parser):
             elif element[0] == "image":
                 image_bytes = element[1]
                 if image_bytes:
-                    # Validate image dimensions before generating description
-                    image = Image.open(image_bytes)
-                    if image.size[0] < 50 or image.size[1] < 50 or image.size[0] > 16000 or image.size[1] > 16000:
-                        logger.error("Image dimensions are out of supported range (50x50 to 16000x16000)")
-                        image_description = "Image description unavailable due to unsupported dimensions"
+                    if include_image_descriptions:
+                        # Validate image dimensions before generating description
+                        image = Image.open(image_bytes)
+                        if image.size[0] < 50 or image.size[1] < 50 or image.size[0] > 16000 or image.size[1] > 16000:
+                            logger.error("Image dimensions are out of supported range (50x50 to 16000x16000)")
+                            image_description = "Image description unavailable due to unsupported dimensions"
+                        else:
+                            image_description = self._generate_image_description(image_bytes)
+                        markdown_output.append(f"\n\n![Figure {image_id}] {image_description}\n")
                     else:
-                        image_description = self._generate_image_description(image_bytes)
-                    print(image_id, image_description)
-                    markdown_output.append(f"\n\n![Figure {image_id}] {image_description}\n")
+                        markdown_output.append(f"\n\n![Figure {image_id}]\n")
                     image_id += 1
 
         return "\n".join(markdown_output)
@@ -209,6 +217,12 @@ class PDFParser(Parser):
 
 class DOCXParser(Parser):
     def basic_parse(self) -> str:
+        return self._parse(include_image_descriptions=False)
+
+    def advanced_parse(self) -> str:
+        return self._parse(include_image_descriptions=True)
+
+    def _parse(self, include_image_descriptions: bool) -> str:
         content = []
 
         doc_bytes = io.BytesIO(self.file)
@@ -222,8 +236,11 @@ class DOCXParser(Parser):
                 content.append(self._convert_table_to_markdown(block))
             elif isinstance(block, bytes):  # If the block is image bytes
                 image_bytes = io.BytesIO(block)
-                image_description = self._generate_image_description(image_bytes)
-                content.append(f"\n\n![Figure {image_id}]: {image_description}\n")
+                if include_image_descriptions:
+                    image_description = self._generate_image_description(image_bytes)
+                    content.append(f"\n\n![Figure {image_id}]: {image_description}\n")
+                else:
+                    content.append(f"\n\n![Figure {image_id}]\n")
                 image_id = image_id + 1
 
         return "\n\n".join(content)
@@ -323,7 +340,7 @@ class DOCXParser(Parser):
         except Exception as e:
             logger.error(f"Error generating image description: {e}")
             return "Image description unavailable"
-        
+
 class CSVParser(Parser):
     def basic_parse(self) -> str:
         if self.file is None:
@@ -341,6 +358,12 @@ class CSVParser(Parser):
     
 class HTMLParser(Parser):
     def basic_parse(self) -> str:
+        return self._parse(include_image_descriptions=False)
+
+    def advanced_parse(self) -> str:
+        return self._parse(include_image_descriptions=True)
+
+    def _parse(self, include_image_descriptions: bool) -> str:
         if self.file is None:
             raise ValueError("No file data is configured")
         content = self.file
@@ -363,9 +386,11 @@ class HTMLParser(Parser):
                     # Convert relative URLs to absolute URLs using the base URL
                     image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
                 
-                image_description = self._generate_image_description_from_url(image_url)
-                if image_description != "Image description unavailable":
+                if include_image_descriptions:
+                    image_description = self._generate_image_description_from_url(image_url)
                     markdown_content.append(f"\n\n![Image: {image_description}]\n")
+                else:
+                    markdown_content.append(f"\n\n![Image]\n")
             elif element.name is not None:
                 # Convert other HTML elements to markdown
                 markdown_content.append(md(str(element)))
@@ -386,37 +411,6 @@ class HTMLParser(Parser):
         except Exception as e:
             logger.error(f"Error generating image description from URL {image_url}: {e}")
             return "Image description unavailable"
-
-    def advanced_parse(self) -> str:
-        if self.data is None:
-            raise ValueError("No file data is configured")
-        content = self.data
-        soup = BeautifulSoup(content, 'html.parser')
-
-        # Determine the base URL if available
-        base_url = soup.find('base', href=True)
-        base_url = base_url['href'] if base_url else ''
-
-        markdown_content = []
-        # Iterate over all tags in the HTML content
-        for element in soup.descendants:
-            if element.name == 'img' and element.has_attr('src'):
-                # Handle image tags
-                image_url = element['src']
-                if image_url.startswith('//'):
-                    # Convert protocol-relative URLs to absolute URLs
-                    image_url = 'https:' + image_url
-                elif not image_url.startswith(('http://', 'https://')) and base_url:
-                    # Convert relative URLs to absolute URLs using the base URL
-                    image_url = base_url.rstrip('/') + '/' + image_url.lstrip('/')
-                
-                image_description = self._generate_image_description_from_url(image_url)
-                markdown_content.append(f"\n\n![Image: {image_description}]\n")
-            elif element.name is not None:
-                # Convert other HTML elements to markdown
-                markdown_content.append(md(str(element)))
-
-        return "\n".join(markdown_content)
 
 # Factory class to return appropriate parser based on file type
 class ParserFactory:
