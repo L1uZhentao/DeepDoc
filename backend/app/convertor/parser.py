@@ -75,6 +75,7 @@ class PDFParser(Parser):
     def __init__(self):
         super().__init__()
         self.elements = []  # Store all elements (text blocks and images) in the document
+        self.top_font_size = []
         self.font_size_threshold = 0
         self.max_text_length = 100  # Set a threshold for maximum allowed text length for headings
         self.figure_count = 0  # Track the number of figures (images)
@@ -137,6 +138,9 @@ class PDFParser(Parser):
         # Calculate the 80th percentile font size once for all text blocks
         if font_sizes:
             self.font_size_threshold = np.percentile(font_sizes, 80)
+            # Determine unique top three font sizes
+            font_size_unique = list(set(font_sizes))
+            self.top_font_size = sorted(set(font_size_unique), reverse=True)[:3]
 
     def process_elements(self, include_image_descriptions: bool):
         markdown_output = []
@@ -211,13 +215,15 @@ class PDFParser(Parser):
             return 2
         elif re.match(r"^\d+\s+", text):
             return 1
-
-        if font_size > 16:
+ 
+        if len(self.top_font_size) > 0 and font_size >= self.top_font_size[0]:
             return 1
-        elif font_size > 12:
+        elif len(self.top_font_size) > 1 and font_size >= self.top_font_size[1]:
             return 2
-        else:
+        elif len(self.top_font_size) > 2 and font_size >= self.top_font_size[2]:
             return 3
+        else:
+            return 4  # Default to level 4 if font size doesn't match top three
         
     def get_document_info(self) -> dict:
         # Get basic information about the document
