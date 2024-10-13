@@ -59,8 +59,7 @@ def upload_file(file: UploadFile = File(...), advanced: bool = False, receipient
         parser = ParserFactory.get_parser(file_extension)
         parser.set_file(file)
         basic_info = parser.get_document_info()
-        if advanced and ("image_count" in basic_info and basic_info["image_count"] > 0):
-
+        if advanced and ("image_count" in basic_info and basic_info["image_count"] > 10):
             # Create a new thread to send the email
             email_thread = threading.Thread(target=parse_and_send_email, args=(parser, file.filename, receipient_email))    
             email_thread.start()
