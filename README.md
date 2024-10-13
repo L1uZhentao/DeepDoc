@@ -5,6 +5,10 @@ An AI-based Doc Parsing and Standardization Platform.
 
 DeepDoc is a full-stack application designed to streamline the process of document format standardization. It takes in different document formats (PDF, DOCX, CSV, and HTML) and converts them into clean Markdown text. The Markdown output is optimized for use cases such as providing context for large language models (LLMs) and storing content in a vector database for retrieval-augmented generation (RAG) workflows. The focus of this application is on effective text extraction, and converting graphical elements into descriptive text for better context enrichment.
 
+## App Screenshot
+
+![App Screenshot](./screenshot.png)
+
 ## Features
 
 ### Core Functionality

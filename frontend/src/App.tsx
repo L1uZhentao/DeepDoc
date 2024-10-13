@@ -40,6 +40,13 @@ const App: React.FC = () => {
     return emailRegex.test(email);
   }
 
+  const resetStates = () => {
+    setMarkdownResult(null);
+    setCompleted(0);
+    setErrorMessage(null);
+    setIsSentEmail(false);
+  };
+
   const handleFileUploadMutation = useMutation(
     (formData: FormData) => {
       const url = `${API_BASE_URL}/upload?advanced=${isAdvanced}${isAdvanced ? `&receipient_email=${recipientEmail}` : ''}`;
@@ -98,6 +105,8 @@ const App: React.FC = () => {
     }
 
     setEmailError(null); // Clear email error if valid
+
+    resetStates(); // Reset states before uploading
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -174,15 +183,42 @@ const App: React.FC = () => {
         </Typography>
         </Box>
       )}
-
       <FormControlLabel
         control={<Switch checked={isAdvanced} onChange={() => setIsAdvanced(!isAdvanced)} />}
         label={isAdvanced ? "Advanced Parse" : "Basic Parse"}
+        title={isAdvanced ? "Advanced Parse: AI-based Image Analysis + Text Enhancement" : "Basic Parse: Quick Conversion focusing on text information"}
+        sx={{
+          position: 'relative',
+          '&:hover .tooltip': {
+        display: 'block',
+          },
+        }}
       />
+      <Box
+        className="tooltip"
+        sx={{
+          display: 'none',
+          position: 'absolute',
+          backgroundColor: '#333',
+          color: '#fff',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          whiteSpace: 'nowrap',
+          zIndex: 1,
+          fontSize: '0.875rem',
+          textAlign: 'center',
+        }}
+      >
+        {isAdvanced ? "Advanced Parse: AI-based Image Analysis + Text Enhancement" : "Basic Parse: Quick Conversion focusing on text information"}
+      </Box>
 
       {isAdvanced && (
         <TextField
-          label="Recipient Email"
+          label="Your Email (If the result too large)"
           type="email"
           fullWidth
           value={recipientEmail}
@@ -204,7 +240,7 @@ const App: React.FC = () => {
         {handleFileUploadMutation.isLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Upload & Convert'}
       </Button>
 
-      {!errorMessage && completed > 0 && (
+      {!errorMessage && completed > 0 && completed < 100 && (
         <Box sx={{ width: '100%', mt: 2 }}>
         <LinearProgress variant="determinate" value={completed} />
         <Typography variant="body2" color="textSecondary">
@@ -284,7 +320,9 @@ const App: React.FC = () => {
         >
         Download
         </Button>
-        <MarkdownPreview source={markdownResult} />
+        <Box sx={{ overflowX: 'auto' }}>
+          <MarkdownPreview source={markdownResult} />
+        </Box>
       </Box>
       )}
       {markdownResult && isSentEmail && (
