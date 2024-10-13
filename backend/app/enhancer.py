@@ -4,9 +4,9 @@ from typing import List, Optional
 from .constant import DocumentType
 class Enhancer:
     def __init__(self, openai_api_key: Optional[str] = None):
-        self.openai_api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        self.openai_api_key = openai_api_key or os.getenv('OPENAPI_KEY')
         if not self.openai_api_key:
-            raise ValueError("OpenAI API key is required. Set it as an argument or in the environment variable 'OPENAI_API_KEY'.")
+            raise ValueError("OpenAI API key is required. Set it as an argument or in the environment variable 'OPENAPI_KEY'.")
         openai.api_key = self.openai_api_key
 
     def enhance_extraction(self, extracted_text: str, document_type: DocumentType = DocumentType.PDF, prompt_template: Optional[str] = None) -> str:

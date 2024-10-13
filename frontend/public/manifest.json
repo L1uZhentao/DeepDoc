@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "DeepDoc",
+  "name": "DeepDoc: An AI-based Doc Parsing and Standardization Platform.",
   "icons": [
     {
       "src": "favicon.ico",

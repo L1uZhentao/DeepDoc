@@ -417,13 +417,14 @@ class HTMLParser(Parser):
 class ParserFactory:
     @staticmethod
     def get_parser(file_extension: str) -> Parser:
-        if file_extension.upper() == "." + DocumentType.PDF:
+        print(str(DocumentType.PDF))
+        if file_extension.upper() == "." + DocumentType.PDF.value:
             return PDFParser()
-        elif file_extension.upper() == "." + DocumentType.DOCX:
+        elif file_extension.upper() == "." + DocumentType.DOCX.value:
             return DOCXParser()
-        elif file_extension.upper() == "." + DocumentType.CSV:
+        elif file_extension.upper() == "." + DocumentType.CSV.value:
             return CSVParser()
-        elif file_extension.upper() == "." +  + DocumentType.HTML:
+        elif file_extension.upper() == "." + DocumentType.HTML.value:
             return HTMLParser()
         else:
             raise ValueError("Unsupported file type")

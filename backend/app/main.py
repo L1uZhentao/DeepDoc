@@ -5,6 +5,7 @@ import os
 import logging
 
 from .parsers import ParserFactory
+from .enhancer import Enhancer
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ def upload_file(file: UploadFile = File(...), advanced: bool = False):
         parser.set_file(file)
         if advanced:
             content = parser.advanced_parse()
+            enhancer = Enhancer()
         else:
             content = parser.basic_parse()
     except Exception as e:
