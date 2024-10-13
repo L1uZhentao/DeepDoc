@@ -12,8 +12,10 @@ app = FastAPI()
 
 # CORS configuration
 from fastapi.middleware.cors import CORSMiddleware
-
-origins = ["http://localhost:3000"]
+  
+app_host = os.getenv("HOST", "localhost")  
+app_port = os.getenv("PORT", "3000")  
+origins = ["http://" + app_host + ":" + app_port]
 
 app.add_middleware(
     CORSMiddleware,

@@ -6,6 +6,11 @@ import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/i
 import MarkdownPreview from '@uiw/react-markdown-preview';
 
 const App: React.FC = () => {
+
+  const API_HOST = process.env.FASTAPI_HOST || '127.0.0.1';
+  const API_PORT = process.env.FASTAPI_PORT || '8000';
+
+  const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [markdownResult, setMarkdownResult] = useState<string | null>(null);
   const [completed, setCompleted] = useState<number>(0);
@@ -19,9 +24,11 @@ const App: React.FC = () => {
     }
   };
 
+
+  console.log(process.env.FASTAPI_PORT);
   const handleFileUploadMutation = useMutation(
     (formData: FormData) =>
-      axios.post(`http://127.0.0.1:8000/upload?advanced=${isAdvanced}`, formData, {
+      axios.post(`${API_BASE_URL}/upload?advanced=${isAdvanced}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,  // 30 seconds timeout, adjust as necessary
         onUploadProgress: (progressEvent) => {
@@ -96,7 +103,7 @@ const App: React.FC = () => {
       }}
     >
       <Typography variant="h4" gutterBottom sx={{ color: '#1976d2' }}>
-        Convert Your File to Markdown
+      DeepDoc: Convert Your File to Markdown
       </Typography>
 
       {errorMessage && (
