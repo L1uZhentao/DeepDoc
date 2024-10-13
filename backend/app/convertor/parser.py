@@ -17,13 +17,13 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
-import logging  
-logger = logging.getLogger(__name__)
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from functools import cache
 from .constant import DocumentType
+import logging  
+logger = logging.getLogger(__name__)
 # Azure Vision API setup
 try:
     AZURE_VISION_ENDPOINT = os.environ["VISION_ENDPOINT"]

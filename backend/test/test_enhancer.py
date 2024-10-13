@@ -3,8 +3,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 import pytest
 from unittest.mock import patch, MagicMock
-from app.enhancer import Enhancer
-from app.constant import DocumentType
+from app.convertor.enhancer import Enhancer
+from app.convertor.constant import DocumentType
 @pytest.fixture
 def enhancer():
     return Enhancer(openai_api_key="test_api_key")
@@ -14,12 +14,12 @@ def test_init_with_api_key():
     assert enhancer.openai_api_key == "test_api_key"
 
 def test_init_without_api_key(monkeypatch):
-    monkeypatch.setenv('OPENAI_API_KEY', 'env_api_key')
+    monkeypatch.setenv('OPENAPI_KEY', 'env_api_key')
     enhancer = Enhancer()
     assert enhancer.openai_api_key == 'env_api_key'
 
 def test_init_without_api_key_raises_error(monkeypatch):
-    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    monkeypatch.delenv('OPENAPI_KEY', raising=False)
     with pytest.raises(ValueError, match="OpenAI API key is required."):
         Enhancer()
 

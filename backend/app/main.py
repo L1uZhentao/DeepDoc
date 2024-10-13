@@ -4,8 +4,8 @@ from typing import List
 import os
 import logging
 
-from .parsers import ParserFactory
-from .enhancer import Enhancer
+from .convertor.parser import ParserFactory
+from .convertor.enhancer import Enhancer
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,8 @@ def upload_file(file: UploadFile = File(...), advanced: bool = False):
         parser.set_file(file)
         if advanced:
             content = parser.advanced_parse()
-            enhancer = Enhancer()
+            enhancer = Enhancer(model="gpt-3.5-turbo")
+            content = enhancer.enhance_extraction(content)
         else:
             content = parser.basic_parse()
     except Exception as e:

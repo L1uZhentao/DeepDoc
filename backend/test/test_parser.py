@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../'
 import io
 from docx import Document
 import pytest
-from app.parsers import PDFParser, DOCXParser, HTMLParser, CSVParser
+from app.convertor.parser import PDFParser, DOCXParser, HTMLParser, CSVParser
 from reportlab.pdfgen import canvas
 
 @pytest.fixture
