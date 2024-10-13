@@ -51,6 +51,9 @@ DeepDoc is a full-stack application designed to streamline the process of docume
      VISION_ENDPOINT=<Your Azure Vision API endpoint>
      VISION_KEY=<Your Azure Vision API key>
      OPENAPI_KEY=<Your OpenAI Key>
+     SENDER_EMAIL=<Your email sender address to send email>
+     SMTP_USERNAME=<Your SMTP user name>
+     SMTP_PASSWORD=<Your SMTP password>
      ```
 
      For the Azure Vision API key setup, please refer to the [Azure Vision API Documentation](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/quickstarts-sdk/image-analysis-client-library-40?tabs=visual-studio%2Clinux&pivots=programming-language-python).

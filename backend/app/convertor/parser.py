@@ -229,7 +229,6 @@ class PDFParser(Parser):
         file_size = len(self.file) if self.file else 0
 
         return {
-            "size": file_size,
             "type": DocumentType.PDF.value,
             "word_count": word_count,
             "image_count": image_count,
@@ -379,7 +378,6 @@ class DOCXParser(Parser):
                 image_count += 1
 
         return {
-            "size": file_size,
             "type": DocumentType.DOCX.value,
             "word_count": word_count,
             "image_count": image_count,
@@ -411,7 +409,6 @@ class CSVParser(Parser):
         file_size = len(self.file) if self.file else 0
 
         return {
-            "size": file_size,
             "type": DocumentType.CSV.value,
             "row_count": row_count,
             "col_count": column_count,
@@ -484,7 +481,6 @@ class HTMLParser(Parser):
         file_size = len(self.file) if self.file else 0
 
         return {
-            "size": file_size,
             "type": DocumentType.HTML.value,
             "word_count": word_count,
             "image_count": image_count,

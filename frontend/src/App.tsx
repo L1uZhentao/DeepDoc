@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from 'react-query';
 import axios from 'axios';
-import { Box, Button, CircularProgress, Typography, LinearProgress, Alert, FormControlLabel, Switch } from '@mui/material';
+import { Box, Button, CircularProgress, Typography, LinearProgress, Alert, FormControlLabel, Switch, TextField } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 
@@ -23,6 +23,9 @@ const App: React.FC = () => {
   const [completed, setCompleted] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null); // Track error messages
   const [isAdvanced, setIsAdvanced] = useState<boolean>(false); // Toggle between basic and advanced parsing
+  const [recipientEmail, setRecipientEmail] = useState<string>(''); // Email for advanced parsing
+  const [emailError, setEmailError] = useState<string | null>(null); // Email validation error
+  const [isSentEmail, setIsSentEmail] = useState<boolean>(false); // Email sent status
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMessage(null); // Reset error on file change
@@ -32,9 +35,15 @@ const App: React.FC = () => {
     }
   }
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
   const handleFileUploadMutation = useMutation(
-    (formData: FormData) =>
-      axios.post(`${API_BASE_URL}/upload?advanced=${isAdvanced}`, formData, {
+    (formData: FormData) => {
+      const url = `${API_BASE_URL}/upload?advanced=${isAdvanced}${isAdvanced ? `&receipient_email=${recipientEmail}` : ''}`;
+      return axios.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,  // 30 seconds timeout, adjust as necessary
         onUploadProgress: (progressEvent) => {
@@ -45,11 +54,13 @@ const App: React.FC = () => {
             setCompleted(-1);
           }
         },
-      }),
+      });
+    },
     {
       onSuccess: (data) => {
         setMarkdownResult(data.data.markdown);
-        if (data.data.file_info.type === 'csv') { 
+        setIsSentEmail(data.data.isSentEmail);
+        if (data.data.file_info.type === 'CSV') { 
           setFileInfo({ name: data.data.file_info.name, type: DocumentType.csv, file_size: data.data.file_info.file_size, row_count: data.data.file_info.row_count, col_count: data.data.file_info.col_count });
         } else {
           setFileInfo({ name: data.data.file_info.name, type: data.data.file_info.type , file_size: data.data.file_info.file_size, word_count: data.data.file_info.word_count, image_count: data.data.file_info.image_count });
@@ -80,6 +91,13 @@ const App: React.FC = () => {
   const handleFileUpload = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedFile) return;
+
+    if (isAdvanced && !validateEmail(recipientEmail)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
+    setEmailError(null); // Clear email error if valid
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -162,6 +180,19 @@ const App: React.FC = () => {
         label={isAdvanced ? "Advanced Parse" : "Basic Parse"}
       />
 
+      {isAdvanced && (
+        <TextField
+          label="Recipient Email"
+          type="email"
+          fullWidth
+          value={recipientEmail}
+          onChange={(e) => setRecipientEmail(e.target.value)}
+          error={!!emailError}
+          helperText={emailError}
+          sx={{ mb: 2 }}
+        />
+      )}
+
       <Button
         variant="contained"
         color="primary"
@@ -170,7 +201,7 @@ const App: React.FC = () => {
         disabled={handleFileUploadMutation.isLoading || !selectedFile}
         sx={{ backgroundColor: '#0288d1', '&:hover': { backgroundColor: '#0277bd' } }}
       >
-        {handleFileUploadMutation.isLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Upload'}
+        {handleFileUploadMutation.isLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Upload & Convert'}
       </Button>
 
       {!errorMessage && completed > 0 && (
@@ -229,7 +260,7 @@ const App: React.FC = () => {
       </Box>
       )}
 
-      {markdownResult && (
+      {markdownResult && !isSentEmail && (
       <Box
         sx={{
         mt: 4,
@@ -251,12 +282,31 @@ const App: React.FC = () => {
         onClick={handleDownloadMarkdown}
         sx={{ mt: 2 }}
         >
-        Download Markdown
+        Download
         </Button>
         <MarkdownPreview source={markdownResult} />
-
-
       </Box>
+      )}
+      {markdownResult && isSentEmail && (
+        <Box
+          sx={{
+            mt: 4,
+            width: '100%',
+            maxWidth: '800px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.1)',
+            p: 3,
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="h5" gutterBottom sx={{ color: '#0288d1' }}>
+            Email Notification
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#555' }}>
+            The result will be sent to your email when it is available.
+          </Typography>
+        </Box>
       )}
     </Box>
   );
