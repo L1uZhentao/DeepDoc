@@ -56,22 +56,33 @@ DeepDoc is a full-stack application designed to streamline the process of docume
      For the Azure Vision API key setup, please refer to the [Azure Vision API Documentation](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/quickstarts-sdk/image-analysis-client-library-40?tabs=visual-studio%2Clinux&pivots=programming-language-python).
 
      For the OpenAI API key setup, please refer to the [OpenAI API Documentation](https://platform.openai.com/docs/overview).
-     
-3. **Install Dependencies**
-   - Install the required dependencies using `pip`:
+
+3. **Option 1: One docker command to run everything**
+   - Just one command to run everything`:
    ```bash
-   pip install -r requirements.txt
+   docker-compose up --build
    ```
 
-4. **Run the Application**
-   - To start the backend server:
+   The application will be accessible at `http://127.0.0.1:3000`.
+
+4. **Option 2: Run the backend and frontend seperately**
+   - Install the required dependencies using `pip`:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+   - Start the backend server:
    ```bash
    uvicorn main:app --reload
    ```
-   - The application will be accessible at `http://127.0.0.1:8000`.
-
-5. **Frontend Setup**
-   - Navigate to the `frontend` folder and follow the setup instructions for the UI framework used (e.g., React).
+   The application will be accessible at `http://127.0.0.1:8000`.
+      - Install the required dependencies using `pip`:
+   - Open another terminal and run:
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
 
 ## Usage Instructions
 
@@ -81,9 +92,17 @@ DeepDoc is a full-stack application designed to streamline the process of docume
 2. **Receive Markdown Output**
    - The system will parse the document and provide a Markdown representation optimized for LLM use.
 
+3. **Flexibility to switch between basic/ advanced parsing**
+   - For basic parsing, it is quick to extract the text information, but does not consider image information
+   - For advanced parsing, it uses Azure AI for image information extraction, and use GPT-4 for markdown enhancement
+
 ## Testing
 
-- Unit tests are included to validate the document parsing and image recognition features.
+- Unit tests are included to validate the document parsing and enhancement features.
+- Install the required dependencies using `pip`:
+   ```bash
+   pip install -r requirements.txt
+   ```
 - To run tests:
   ```bash
   pytest tests/
@@ -91,19 +110,8 @@ DeepDoc is a full-stack application designed to streamline the process of docume
 
 ## Security Considerations
 
-- **Data Deletion**: All uploaded documents are deleted after processing to ensure privacy and data security.
+- **Data Security and Privacy**: No user data is stored to ensure privacy and data security.
 - **API Key Management**: Store your Azure API keys in environment variables or a secure secret management solution.
-
-## Contribution Guidelines
-
-1. **Fork the Repository**
-   - Create a new branch for your feature or bug fix.
-
-2. **Make Changes**
-   - Ensure code follows best practices for organization, maintainability, and security.
-
-3. **Submit a Pull Request**
-   - Describe the changes made in the pull request.
 
 ## License
 
