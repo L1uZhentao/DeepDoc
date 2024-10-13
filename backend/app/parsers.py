@@ -3,7 +3,7 @@ import os
 from fastapi import UploadFile
 from azure.core.credentials import AzureKeyCredential
 from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTImage, LTTextBox, LTTextLine, LTChar, LTFigure, LAParams
+from pdfminer.layout import LTTextBox, LTTextLine, LTChar, LTFigure, LAParams
 import fitz 
 from PIL import Image
 import pandas as pd
@@ -17,13 +17,13 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
-import logging
+import logging  
 logger = logging.getLogger(__name__)
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from functools import cache
-
+from .constant import DocumentType
 # Azure Vision API setup
 try:
     AZURE_VISION_ENDPOINT = os.environ["VISION_ENDPOINT"]
@@ -417,13 +417,13 @@ class HTMLParser(Parser):
 class ParserFactory:
     @staticmethod
     def get_parser(file_extension: str) -> Parser:
-        if file_extension == ".pdf":
+        if file_extension.upper() == "." + DocumentType.PDF:
             return PDFParser()
-        elif file_extension == ".docx":
+        elif file_extension.upper() == "." + DocumentType.DOCX:
             return DOCXParser()
-        elif file_extension == ".csv":
+        elif file_extension.upper() == "." + DocumentType.CSV:
             return CSVParser()
-        elif file_extension == ".html":
+        elif file_extension.upper() == "." +  + DocumentType.HTML:
             return HTMLParser()
         else:
             raise ValueError("Unsupported file type")
