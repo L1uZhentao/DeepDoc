@@ -26,7 +26,7 @@ class EmailSender:
 
     def setup_email(self):
         # Set up the MIME
-        self.message['From'] = self.sender_email
+        self.message['From'] = f"DeepDoc <{self.sender_email}>"
         self.message['To'] = self.recipient_email
         self.message['Subject'] = self.subject
 
@@ -68,4 +68,3 @@ class DeepDocEmailSender(EmailSender):
 
         # Create an instance of EmailSender
         super().__init__(recipient_email, subject, body, markdown_content, file_name, smtp_server, smtp_port)
-

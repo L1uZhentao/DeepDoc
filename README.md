@@ -82,14 +82,13 @@ DeepDoc is a full-stack application designed to streamline the process of docume
    ```bash
    uvicorn main:app --reload
    ```
-   The application will be accessible at `http://127.0.0.1:8000`.
-      - Install the required dependencies using `pip`:
    - Open another terminal and run:
    ```bash
    cd frontend
    npm install
    npm start
    ```
+   - The application will be accessible at `http://127.0.0.1:3000`.
 
 ## Usage Instructions
 
@@ -102,6 +101,8 @@ DeepDoc is a full-stack application designed to streamline the process of docume
 3. **Flexibility to switch between basic/ advanced parsing**
    - For basic parsing, it is quick to extract the text information, but does not consider image information
    - For advanced parsing, it uses Azure AI for image information extraction, and use GPT-4 for markdown enhancement
+4. **Email Notification**
+    - For files that are too large to process using the advance parising, the result will be sent by email once it is ready
 
 ## Testing
 
