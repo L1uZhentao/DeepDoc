@@ -1,5 +1,6 @@
 import io
 import os
+from typing import Any, Dict
 from fastapi import UploadFile
 from azure.core.credentials import AzureKeyCredential
 from pdfminer.high_level import extract_pages
@@ -67,6 +68,9 @@ class Parser:
     def advanced_parse(self) -> str:
         raise NotImplementedError("Advanced parse method not implemented")
 
+    def get_document_info(self) -> Dict[str, Any]:
+        raise NotImplementedError("Document info method not implemented")
+
 class PDFParser(Parser):
     def __init__(self):
         super().__init__()
@@ -76,12 +80,14 @@ class PDFParser(Parser):
         self.figure_count = 0  # Track the number of figures (images)
 
     def basic_parse(self) -> str:
-        self.collect_elements(include_images=False)
+        if len(self.elements) == 0:
+            self.collect_elements(include_images=False)
         markdown_output = self.process_elements(include_image_descriptions=False)
         return markdown_output
 
     def advanced_parse(self) -> str:
-        self.collect_elements(include_images=True)
+        if len(self.elements) == 0:
+            self.collect_elements(include_images=True)
         markdown_output = self.process_elements(include_image_descriptions=True)
         return markdown_output
 
@@ -150,20 +156,17 @@ class PDFParser(Parser):
                 else:
                     markdown_output.append(text_content)
 
-            elif element[0] == "image":
+            elif element[0] == "image" and include_image_descriptions:
                 image_bytes = element[1]
                 if image_bytes:
-                    if include_image_descriptions:
-                        # Validate image dimensions before generating description
-                        image = Image.open(image_bytes)
-                        if image.size[0] < 50 or image.size[1] < 50 or image.size[0] > 16000 or image.size[1] > 16000:
-                            logger.error("Image dimensions are out of supported range (50x50 to 16000x16000)")
-                            image_description = "Image description unavailable due to unsupported dimensions"
-                        else:
-                            image_description = self._generate_image_description(image_bytes)
-                        markdown_output.append(f"\n\n![Figure {image_id}] {image_description}\n")
+                    # Validate image dimensions before generating description
+                    image = Image.open(image_bytes)
+                    if image.size[0] < 50 or image.size[1] < 50 or image.size[0] > 16000 or image.size[1] > 16000:
+                        logger.error("Image dimensions are out of supported range (50x50 to 16000x16000)")
+                        image_description = "Image description unavailable due to unsupported dimensions"
                     else:
-                        markdown_output.append(f"\n\n![Figure {image_id}]\n")
+                        image_description = self._generate_image_description(image_bytes)
+                    markdown_output.append(f"\n\n![Figure {image_id}] {image_description}\n")
                     image_id += 1
 
         return "\n".join(markdown_output)
@@ -215,6 +218,23 @@ class PDFParser(Parser):
             return 2
         else:
             return 3
+        
+    def get_document_info(self) -> dict:
+        # Get basic information about the document
+        if not self.elements:
+            self.collect_elements(include_images=True)  # Generate elements if not already done
+        
+        word_count = sum(len(text.split()) for element in self.elements if element[0] == "text" for _, _, text in [element])
+        image_count = sum(1 for element in self.elements if element[0] == "image")
+        file_size = len(self.file) if self.file else 0
+
+        return {
+            "size": file_size,
+            "type": DocumentType.PDF.value,
+            "word_count": word_count,
+            "image_count": image_count,
+            "file_size": file_size
+        }
 
 class DOCXParser(Parser):
     def basic_parse(self) -> str:
@@ -342,6 +362,30 @@ class DOCXParser(Parser):
             logger.error(f"Error generating image description: {e}")
             return "Image description unavailable"
 
+    def get_document_info(self) -> dict:
+        # Get basic information about the document
+        if not self.file:
+            raise ValueError("No file data is configured")
+        
+        doc_bytes = io.BytesIO(self.file)
+        doc = Document(doc_bytes)
+        word_count = 0
+        image_count = 0
+        file_size = len(self.file) if self.file else 0  
+        for block in self._iter_block_elements(doc):
+            if isinstance(block, Paragraph):
+                word_count += len(block.text.split())
+            elif isinstance(block, bytes):  # If the block is image bytes
+                image_count += 1
+
+        return {
+            "size": file_size,
+            "type": DocumentType.DOCX.value,
+            "word_count": word_count,
+            "image_count": image_count,
+            "file_size": file_size
+        }
+    
 class CSVParser(Parser):
     def basic_parse(self) -> str:
         if self.file is None:
@@ -356,6 +400,23 @@ class CSVParser(Parser):
         df = pd.read_csv(io.BytesIO(self.file))
         res = tabulate(df, tablefmt="pipe", headers="keys")
         return res
+
+    def get_document_info(self) -> dict:
+        if self.file is None:
+            raise ValueError("No file data is configured")
+        
+        df = pd.read_csv(io.BytesIO(self.file))
+        row_count = len(df)
+        column_count = len(df.columns)
+        file_size = len(self.file) if self.file else 0
+
+        return {
+            "size": file_size,
+            "type": DocumentType.CSV.value,
+            "row_count": row_count,
+            "col_count": column_count,
+            "file_size": file_size
+        }
     
 class HTMLParser(Parser):
     def basic_parse(self) -> str:
@@ -412,6 +473,23 @@ class HTMLParser(Parser):
         except Exception as e:
             logger.error(f"Error generating image description from URL {image_url}: {e}")
             return "Image description unavailable"
+        
+    def get_document_info(self):
+        if self.file is None:
+            raise ValueError("No file data is configured")
+        
+        soup = BeautifulSoup(self.file, 'html.parser')
+        image_count = len(soup.find_all('img'))
+        word_count = len(soup.get_text().split())
+        file_size = len(self.file) if self.file else 0
+
+        return {
+            "size": file_size,
+            "type": DocumentType.HTML.value,
+            "word_count": word_count,
+            "image_count": image_count,
+            "file_size": file_size
+        }
 
 # Factory class to return appropriate parser based on file type
 class ParserFactory:

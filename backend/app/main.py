@@ -44,13 +44,17 @@ def upload_file(file: UploadFile = File(...), advanced: bool = False):
     try:
         parser = ParserFactory.get_parser(file_extension)
         parser.set_file(file)
+        basic_info = parser.get_document_info()
+        print(basic_info)
         if advanced:
             content = parser.advanced_parse()
             enhancer = Enhancer(model="gpt-3.5-turbo")
             content = enhancer.enhance_extraction(content)
         else:
             content = parser.basic_parse()
+        
+        # Extract basic information
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
-    return JSONResponse(content={"markdown": content})
+    return JSONResponse(content={"markdown": content, "file_info": basic_info})
